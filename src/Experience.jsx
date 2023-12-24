@@ -1,7 +1,7 @@
 import { OrbitControls, RoundedBox } from "@react-three/drei"
 import { useLoader } from "@react-three/fiber"
 import * as THREE from "three"
-
+import TextComponent from './TextComponent.jsx'
 
 export default function Experience(){
 
@@ -19,5 +19,6 @@ export default function Experience(){
             normalMap={ normalM }
           />
        </RoundedBox>
+       <TextComponent />
     </>
   )}
