@@ -1,17 +1,85 @@
-import { Text } from '@react-three/drei';
-// import { MeshPhysicalMaterial } from '@react-three/fiber'
-import { MeshPhysicalMaterial, DoubleSide } from 'three'
+import { useRef } from 'react'
+import { Text, useEnvironment } from '@react-three/drei';
+import { useFrame, useLoader } from '@react-three/fiber'
+import { DoubleSide, TextureLoader, MeshStandardMaterial } from 'three'
 
 function TextComponent() {
 
-  const material = new MeshPhysicalMaterial({
-    roughness: 0.2,
+const normalM = useLoader(TextureLoader, "./Textures/waternormals.jpeg")
+
+const envMap = useEnvironment({files : "./Environments/envmap.hdr"})
+
+const textRef = useRef()
+
+  const customUniforms = {
+    uTime: { value: 0 }
+}
+
+useFrame((state, delta) => {
+  customUniforms.uTime.value += 0.01
+  // textRef.current.rotation.x = textRef.current.rotation.y += delta / 12
+})
+
+  const onBeforeCompile = (shader) => 
+  {
+  shader.uniforms.uTime = customUniforms.uTime
+
+  shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `
+          #include <common>
+
+          uniform float uTime;
+
+          mat2 get2dRotateMatrix(float _angle)
+          {
+              return mat2(cos(_angle), - sin(_angle), sin(_angle), cos(_angle));
+          }
+      `
+      )
+
+  shader.vertexShader = shader.vertexShader.replace(
+          '#include <beginnormal_vertex>',
+          `
+              #include <beginnormal_vertex>
+  
+              // float angle = sin(position.y + uTime) * 0.6;
+              float waveAmplitude = 0.1;
+              float waveX = uv.x * PI * 10.0 - mod(uTime / 0.3, PI2);
+              float waveZ = sin(waveX) * waveAmplitude;
+
+              mat2 rotateMatrix = get2dRotateMatrix(waveZ);
+  
+              objectNormal.xz = rotateMatrix * objectNormal.xz;
+          `
+      )
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+          #include <begin_vertex>
+
+          transformed.xz = rotateMatrix * transformed.xz;
+      `
+   )
+  }
+
+
+
+  const material = new MeshStandardMaterial({
+    roughness: 0.1,
     metalness: 1,
-    side: DoubleSide
+    side: DoubleSide,
+    onBeforeCompile: onBeforeCompile,
+    normalMap: normalM,
+    envMap: envMap, 
+    
   })
 
   return (
       <Text
+        ref={textRef}
+        position= {[0, 1, 0 ]}
         fontSize={1}
         color="white"
         anchorX="center"
@@ -25,62 +93,3 @@ function TextComponent() {
 
 export default TextComponent;
 
-// import React, { useRef } from 'react';
-// import { useFrame } from '@react-three/fiber';
-// import { Text } from '@react-three/drei';
-
-// function TextComponent (){
-//   const textRef = useRef();
-
-//   // Rotate the text in the render loop
-//   useFrame(() => {
-//     if (textRef.current) {
-//       textRef.current.rotation.y += 0.01;
-//     }
-//   });
-
-//   const shaderMaterial = {
-//     uniforms: {
-//       elapsed: { value: 0.0 },
-//     },
-//     vertexShader: `
-//       uniform float elapsed;
-//       varying vec2 vUv;
-//       void main() {
-//         vec3 pos = position;
-//         float waveAmplitude = 0.1;
-//         float waveX = vUv.x * 3.1415 * 4.0 - mod(elapsed / 300.0, 6.283);
-//         float waveZ = sin(waveX) * waveAmplitude;
-//         pos.z += waveZ;
-//         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-//         vUv = uv;
-//       }
-//     `,
-//     fragmentShader: `
-//       varying vec2 vUv;
-//       void main() {
-//         gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-//       }
-//     `,
-//   };
-
-//   return (
-//     <Text
-//       ref={textRef}
-//       color="white"
-//       fontSize={1}
-//       position={[0, 0, 0]}
-//       anchorX="center"
-//       anchorY="middle"
-//       material={shaderMaterial}
-//       material-toneMapped={false} // Disable tone mapping for custom shader materials
-//       onUpdate={(self) => {
-//         self.material.uniforms.elapsed.value += 0.1; // Update the 'elapsed' uniform in the shader
-//       }}
-//     >
-//       Hello, 3D World!
-//     </Text>
-//   );
-// };
-
-// export default TextComponent;
